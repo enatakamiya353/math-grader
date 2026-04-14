@@ -10,7 +10,7 @@ app = Flask(__name__)
 def process_pdf_to_image(pdf_bytes):
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     page = doc.load_page(0)
-    # A3サイズなので解像度を少し高めに設定
+    # A3サイズなので解像度を高めに設定
     pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
     img_data = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, 3)
     return cv2.cvtColor(img_data, cv2.COLOR_RGB2BGR)
@@ -32,20 +32,19 @@ def grade():
 
     h, w = img.shape[:2]
     
-    # 【重要】A3・3列レイアウトの座標設定
-    # ズレがある場合はここの数値を微調整してください
-    start_y = 0.32  # 1番上の行のY座標（上から32%の位置）
-    step_y = 0.055  # 1行ごとの間隔（5.5%ずつ下がる）
+    # 【A3・3列レイアウトの座標設定】
+    start_y = 0.32  
+    step_y = 0.055  
 
     def get_pos(q_num):
         if 1 <= q_num <= 10:       # 左の列（大問1）
-            cx = int(w * 0.25)     # 左から25%の位置
+            cx = int(w * 0.25)
             cy = int(h * (start_y + (q_num - 1) * step_y))
         elif 11 <= q_num <= 20:    # 真ん中の列（大問2）
-            cx = int(w * 0.58)     # 左から58%の位置
+            cx = int(w * 0.58)
             cy = int(h * (start_y + (q_num - 11) * step_y))
         elif 21 <= q_num <= 25:    # 右の列（大問3）
-            cx = int(w * 0.91)     # 左から91%の位置
+            cx = int(w * 0.91)
             cy = int(h * (start_y + (q_num - 21) * step_y))
         else:
             return 0, 0
@@ -57,7 +56,6 @@ def grade():
     for q in range(1, 26):
         cx, cy = get_pos(q)
         if q in wrong_numbers:
-            # 大きな解答欄に合わせてマークも大きく
             size = int(w * 0.015) 
             thickness = 5
             pt1 = (cx - int(size * 0.8), cy)
@@ -71,7 +69,6 @@ def grade():
 
     # 1問4点で減点計算
     score = 100 - (len(wrong_numbers) * 4)
-    # 右上の「得点」欄のあたりに赤字で描画
     cv2.putText(img, f"{score}", (int(w * 0.85), int(h * 0.15)), cv2.FONT_HERSHEY_SIMPLEX, 3.5, red, 6)
 
     _, buffer = cv2.imencode('.jpg', img)
