@@ -2,3 +2,4 @@ Flask
 opencv-python-headless
 numpy
 PyMuPDF
+gunicorn
