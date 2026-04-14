@@ -10,8 +10,10 @@ app = Flask(__name__)
 def process_pdf_to_image(pdf_bytes):
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     page = doc.load_page(0)
-    # A3サイズなので解像度を高めに設定
-    pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
+    
+    # ★修正ポイント：背景の透明化を防ぎ、強制的にカラー(RGB)画像として読み込む
+    pix = page.get_pixmap(matrix=fitz.Matrix(2, 2), alpha=False, colorspace=fitz.csRGB)
+    
     img_data = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, 3)
     return cv2.cvtColor(img_data, cv2.COLOR_RGB2BGR)
 
@@ -31,23 +33,26 @@ def grade():
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
     h, w = img.shape[:2]
-# 【A3・3列レイアウトの「新・新」座標設定】
-    start_y = 0.215  # 縦の高さは前回で完璧です！
+    
+    # 【A3・3列レイアウトの座標設定】
+    start_y = 0.215  
     step_y = 0.0606
 
     def get_pos(q_num):
         if 1 <= q_num <= 10:       # 左の列
-            cx = int(w * 0.305)    # ★修正: 0.205 から 0.305 (右へシフト)
+            cx = int(w * 0.305)    
             cy = int(h * (start_y + (q_num - 1) * step_y))
         elif 11 <= q_num <= 20:    # 真ん中の列
-            cx = int(w * 0.595)    # ★修正: 0.525 から 0.595 (右へシフト)
+            cx = int(w * 0.595)    
             cy = int(h * (start_y + (q_num - 11) * step_y))
         elif 21 <= q_num <= 25:    # 右の列
-            cx = int(w * 0.89)     # ★修正: 0.845 から 0.890 (右へシフト)
+            cx = int(w * 0.89)     
             cy = int(h * (start_y + (q_num - 21) * step_y))
         else:
             return 0, 0
         return cx, cy
+
+    red = (0, 0, 255)
     
     # 25問分の描画ループ
     for q in range(1, 26):
