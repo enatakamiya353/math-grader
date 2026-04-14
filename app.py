@@ -31,24 +31,23 @@ def grade():
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
     h, w = img.shape[:2]
-    
-    # 【A3・3列レイアウトの座標設定】
-    start_y = 0.32  
-    step_y = 0.055  
+    # 【A3・3列レイアウトの「新」座標設定】
+    start_y = 0.215  # 開始の高さを21.5%に
+    step_y = 0.0606  # 行の間隔を6.06%に
 
     def get_pos(q_num):
-        if 1 <= q_num <= 10:       # 左の列（大問1）
-            cx = int(w * 0.25)
+        if 1 <= q_num <= 10:       # 左の列
+            cx = int(w * 0.205)
             cy = int(h * (start_y + (q_num - 1) * step_y))
-        elif 11 <= q_num <= 20:    # 真ん中の列（大問2）
-            cx = int(w * 0.58)
+        elif 11 <= q_num <= 20:    # 真ん中の列
+            cx = int(w * 0.525)
             cy = int(h * (start_y + (q_num - 11) * step_y))
-        elif 21 <= q_num <= 25:    # 右の列（大問3）
-            cx = int(w * 0.91)
+        elif 21 <= q_num <= 25:    # 右の列
+            cx = int(w * 0.845)
             cy = int(h * (start_y + (q_num - 21) * step_y))
         else:
             return 0, 0
-        return cx, cy
+        return cx, cy    
 
     red = (0, 0, 255)
     
