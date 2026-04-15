@@ -90,18 +90,17 @@ def grade():
     elif mode == 'calc_test':
         # 計算テスト (5問版) - 1問20点
         # ★縦の開始位置を 0.215 → 0.315 へ大幅に下げ、横位置を 0.89 → 0.865 にして中央寄せ
-        sy, step = 0.315, 0.0606
+        sy, step = 0.3, 0.0606
         score = 100 - (len(wrong_numbers) * 20)
         for q in range(1, 6):
-            cx = int(w * 0.865) 
+            cx = int(w * 0.85) 
             cy = int(h * (sy + (q - 1) * step))
             if q in wrong_numbers: draw_check(img, cx, cy, w, red)
             else: cv2.circle(img, (cx, cy), int(w * 0.015), red, 4)
 
     # ★得点の位置も、大きくなったヘッダー枠に合わせて左下へ少しズラす
-    cv2.putText(img, f"{score}", (int(w * 0.84), int(h * 0.18)), cv2.FONT_HERSHEY_SIMPLEX, 3.5, red, 6)
+    cv2.putText(img, f"{score}", (int(w * 0.95), int(h * 0.20)), cv2.FONT_HERSHEY_SIMPLEX, 3.5, red, 6)
 
-    cv2.putText(img, f"{score}", (int(w * 0.85), int(h * 0.15)), cv2.FONT_HERSHEY_SIMPLEX, 3.5, red, 6)
     _, buffer = cv2.imencode('.jpg', img)
     result_b64 = base64.b64encode(buffer).decode('utf-8')
     return jsonify({'status': 'success', 'image': 'data:image/jpeg;base64,' + result_b64, 'score': score})
