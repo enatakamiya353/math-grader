@@ -99,7 +99,7 @@ def grade():
             else: cv2.circle(img, (cx, cy), int(w * 0.015), red, 4)
 
     # ★得点の位置も、大きくなったヘッダー枠に合わせて左下へ少しズラす
-    cv2.putText(img, f"{score}", (int(w * 0.95), int(h * 0.20)), cv2.FONT_HERSHEY_SIMPLEX, 3.5, red, 6)
+    cv2.putText(img, f"{score}", (int(w * 0.9), int(h * 0.20)), cv2.FONT_HERSHEY_SIMPLEX, 3.5, red, 6)
 
     _, buffer = cv2.imencode('.jpg', img)
     result_b64 = base64.b64encode(buffer).decode('utf-8')
