@@ -88,13 +88,18 @@ def grade():
             else: cv2.circle(img, (cx, cy), int(w * 0.015), red, 4)
 
     elif mode == 'calc_test':
-        sy, step = 0.215, 0.0606
+        # 計算テスト (5問版) - 1問20点
+        # ★縦の開始位置を 0.215 → 0.315 へ大幅に下げ、横位置を 0.89 → 0.865 にして中央寄せ
+        sy, step = 0.315, 0.0606
         score = 100 - (len(wrong_numbers) * 20)
         for q in range(1, 6):
-            cx = int(w * 0.89)
+            cx = int(w * 0.865) 
             cy = int(h * (sy + (q - 1) * step))
             if q in wrong_numbers: draw_check(img, cx, cy, w, red)
             else: cv2.circle(img, (cx, cy), int(w * 0.015), red, 4)
+
+    # ★得点の位置も、大きくなったヘッダー枠に合わせて左下へ少しズラす
+    cv2.putText(img, f"{score}", (int(w * 0.84), int(h * 0.18)), cv2.FONT_HERSHEY_SIMPLEX, 3.5, red, 6)
 
     cv2.putText(img, f"{score}", (int(w * 0.85), int(h * 0.15)), cv2.FONT_HERSHEY_SIMPLEX, 3.5, red, 6)
     _, buffer = cv2.imencode('.jpg', img)
