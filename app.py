@@ -6,25 +6,60 @@ import fitz  # PyMuPDF
 
 app = Flask(__name__)
 
-def process_pdf_to_image(pdf_bytes):
-    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-    page = doc.load_page(0)
-    pix = page.get_pixmap(matrix=fitz.Matrix(2, 2), alpha=False, colorspace=fitz.csRGB)
-    img_data = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, 3)
-    return cv2.cvtColor(img_data, cv2.COLOR_RGB2BGR)
+# ★新規追加：PDFのプレビュー用エンドポイント（指定ページだけを画像で返す）
+@app.route('/preview', methods=['POST'])
+def preview():
+    data = request.json
+    file_b64 = data.get('file')
+    page_num = data.get('page_num', 0)
+
+    header, encoded = file_b64.split(",", 1)
+    file_bytes = base64.b64decode(encoded)
+    
+    if "pdf" in header:
+        doc = fitz.open(stream=file_bytes, filetype="pdf")
+        total_pages = doc.page_count
+        if page_num >= total_pages:
+            page_num = total_pages - 1
+        page = doc.load_page(page_num)
+        pix = page.get_pixmap(matrix=fitz.Matrix(2, 2), alpha=False, colorspace=fitz.csRGB)
+        img_data = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, 3)
+        img = cv2.cvtColor(img_data, cv2.COLOR_RGB2BGR)
+    else:
+        nparr = np.frombuffer(file_bytes, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        total_pages = 1
+        page_num = 0
+
+    _, buffer = cv2.imencode('.jpg', img)
+    result_b64 = base64.b64encode(buffer).decode('utf-8')
+    
+    return jsonify({
+        'status': 'success', 
+        'image': 'data:image/jpeg;base64,' + result_b64,
+        'total_pages': total_pages,
+        'page_num': page_num
+    })
 
 @app.route('/grade', methods=['POST'])
 def grade():
     data = request.json
     file_b64 = data.get('file')
     wrong_numbers = data.get('wrong_numbers', [])
-    mode = data.get('mode', 'kanji') # モードを取得
+    mode = data.get('mode', 'kanji')
+    page_num = data.get('page_num', 0) # ★ ページ番号を受け取る
 
     header, encoded = file_b64.split(",", 1)
     file_bytes = base64.b64decode(encoded)
     
     if "pdf" in header:
-        img = process_pdf_to_image(file_bytes)
+        doc = fitz.open(stream=file_bytes, filetype="pdf")
+        if page_num >= doc.page_count:
+            page_num = doc.page_count - 1
+        page = doc.load_page(page_num) # ★ 指定ページだけを読み込む
+        pix = page.get_pixmap(matrix=fitz.Matrix(2, 2), alpha=False, colorspace=fitz.csRGB)
+        img_data = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, 3)
+        img = cv2.cvtColor(img_data, cv2.COLOR_RGB2BGR)
     else:
         nparr = np.frombuffer(file_bytes, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
@@ -32,9 +67,7 @@ def grade():
     h, w = img.shape[:2]
     red = (0, 0, 255)
 
-    # --- モード別の設定 ---
     if mode == 'kanji':
-        # 漢字テスト (50問)
         start_x, end_x = 0.10, 0.89
         start_y, end_y = 0.14, 0.92
         score = 100 - (len(wrong_numbers) * 2)
@@ -43,38 +76,27 @@ def grade():
             row, col = idx // 10, idx % 10
             cx = int(w * (end_x - (col * (end_x - start_x) / 10.0) - ((end_x - start_x) / 20.0)))
             cy = int(h * (start_y + (row * (end_y - start_y) / 5.0) + ((end_y - start_y) / 25.0)))
-            if q in wrong_numbers:
-                draw_check(img, cx, cy, w, red)
-            else:
-                cv2.circle(img, (cx, cy), int(w * 0.018), red, 4)
+            if q in wrong_numbers: draw_check(img, cx, cy, w, red)
+            else: cv2.circle(img, (cx, cy), int(w * 0.018), red, 4)
 
     elif mode == 'calc_contest':
-        # 計算コンテスト (25問)
         sy, step = 0.215, 0.0606
         score = 100 - (len(wrong_numbers) * 4)
         for q in range(1, 26):
             cx, cy = get_calc_pos(q, w, h, sy, step)
-            if q in wrong_numbers:
-                draw_check(img, cx, cy, w, red)
-            else:
-                cv2.circle(img, (cx, cy), int(w * 0.015), red, 4)
+            if q in wrong_numbers: draw_check(img, cx, cy, w, red)
+            else: cv2.circle(img, (cx, cy), int(w * 0.015), red, 4)
 
     elif mode == 'calc_test':
-        # 計算テスト (5問版) - 1問20点
         sy, step = 0.215, 0.0606
         score = 100 - (len(wrong_numbers) * 20)
         for q in range(1, 6):
-            # 5問版は座標としては(1)〜(5)だが、位置は25問版の(21)〜(25)と同じ右端
             cx = int(w * 0.89)
             cy = int(h * (sy + (q - 1) * step))
-            if q in wrong_numbers:
-                draw_check(img, cx, cy, w, red)
-            else:
-                cv2.circle(img, (cx, cy), int(w * 0.015), red, 4)
+            if q in wrong_numbers: draw_check(img, cx, cy, w, red)
+            else: cv2.circle(img, (cx, cy), int(w * 0.015), red, 4)
 
-    # スコア描画
     cv2.putText(img, f"{score}", (int(w * 0.85), int(h * 0.15)), cv2.FONT_HERSHEY_SIMPLEX, 3.5, red, 6)
-
     _, buffer = cv2.imencode('.jpg', img)
     result_b64 = base64.b64encode(buffer).decode('utf-8')
     return jsonify({'status': 'success', 'image': 'data:image/jpeg;base64,' + result_b64, 'score': score})
