@@ -98,11 +98,16 @@ def grade():
     red = (0, 0, 255)
     thickness = max(3, int(w * 0.003))
 
-    # ★ 漢字と四字熟語は同じ座標レイアウトを使用する
+    # ★ モードごとの座標・得点位置・フォントサイズ設定
     if mode in ['kanji', 'yojijukugo']:
         start_x, end_x = 0.10, 0.89
         start_y, end_y = 0.14, 0.92
         score = 100 - (len(wrong_numbers) * 2)
+        
+        # 漢字用：上部の「得点」の右の枠内に収まるように位置を左上に調整、文字も少し小さく
+        score_pos = (int(w * 0.76), int(h * 0.085))
+        font_scale = max(1.8, w * 0.0018)
+        
         for q in range(1, 51):
             idx = q - 1
             row, col = idx // 10, idx % 10
@@ -114,6 +119,8 @@ def grade():
     elif mode == 'calc_contest':
         sy, step = 0.215, 0.0606
         score = 100 - (len(wrong_numbers) * 4)
+        score_pos = (int(w * 0.85), int(h * 0.15))
+        font_scale = max(2.5, w * 0.0025)
         for q in range(1, 26):
             cx, cy = get_calc_pos(q, w, h, sy, step)
             if q in wrong_numbers: draw_check(img, cx, cy, w, red, thickness)
@@ -122,13 +129,16 @@ def grade():
     elif mode == 'calc_test':
         sy, step = 0.3, 0.0606
         score = 100 - (len(wrong_numbers) * 20)
+        score_pos = (int(w * 0.84), int(h * 0.18))
+        font_scale = max(2.5, w * 0.0025)
         for q in range(1, 6):
             cx = int(w * 0.85) 
             cy = int(h * (sy + (q - 1) * step))
             if q in wrong_numbers: draw_check(img, cx, cy, w, red, thickness)
             else: cv2.circle(img, (cx, cy), int(w * 0.015), red, thickness)
 
-    cv2.putText(img, f"{score}", (int(w * 0.88), int(h * 0.18)), cv2.FONT_HERSHEY_SIMPLEX, max(2.5, w*0.0025), red, thickness + 2)
+    # 得点を描画
+    cv2.putText(img, f"{score}", score_pos, cv2.FONT_HERSHEY_SIMPLEX, font_scale, red, thickness + 2)
 
     _, buffer = cv2.imencode('.jpg', img, JPEG_QUALITY)
     result_b64 = base64.b64encode(buffer).decode('utf-8')
@@ -146,7 +156,6 @@ def draw_check(img, cx, cy, w, color, thickness):
     cv2.line(img, pt1, pt2, color, thickness); cv2.line(img, pt2, pt3, color, thickness)
 
 def get_crop_box(mode, q_num, w, h):
-    # ★ 四字熟語も漢字と同じ切り抜き領域
     if mode in ['kanji', 'yojijukugo']:
         start_x, end_x = 0.10, 0.89
         start_y, end_y = 0.14, 0.92
