@@ -126,13 +126,18 @@ def grade():
             if q in wrong_numbers: draw_check(img, cx, cy, w, red, thickness)
             else: cv2.circle(img, (cx, cy), int(w * 0.015), red, thickness)
 
-    elif mode == 'calc_test':
-        sy, step = 0.3, 0.0606
+elif mode == 'calc_test':
+        # ★縦の開始位置(sy)を少し上に、横の間隔(step)はそのまま
+        sy, step = 0.275, 0.0606
         score = 100 - (len(wrong_numbers) * 20)
-        score_pos = (int(w * 0.84), int(h * 0.18))
-        font_scale = max(2.5, w * 0.0025)
+        
+        # ★得点の位置を左へずらし、文字サイズを少し小さく調整
+        score_pos = (int(w * 0.77), int(h * 0.16))
+        font_scale = max(2.2, w * 0.0022)
+        
         for q in range(1, 6):
-            cx = int(w * 0.85) 
+            # ★マルの横位置(cx)を左へずらして解答欄の中央へ
+            cx = int(w * 0.80) 
             cy = int(h * (sy + (q - 1) * step))
             if q in wrong_numbers: draw_check(img, cx, cy, w, red, thickness)
             else: cv2.circle(img, (cx, cy), int(w * 0.015), red, thickness)
