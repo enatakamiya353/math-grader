@@ -132,8 +132,8 @@ elif mode == 'calc_test':
         score = 100 - (len(wrong_numbers) * 20)
         
         # ★得点の位置を左へずらし、文字サイズを少し小さく調整
-        score_pos = (int(w * 0.77), int(h * 0.16))
-        font_scale = max(2.2, w * 0.0022)
+        score_pos = (int(w * 0.75), int(h * 0.16))
+        font_scale = max(2, w * 0.0022)
         
         for q in range(1, 6):
             # ★マルの横位置(cx)を左へずらして解答欄の中央へ
