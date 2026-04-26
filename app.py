@@ -126,7 +126,7 @@ def grade():
             if q in wrong_numbers: draw_check(img, cx, cy, w, red, thickness)
             else: cv2.circle(img, (cx, cy), int(w * 0.015), red, thickness)
 
-elif mode == 'calc_test':
+    elif mode == 'calc_test':
         # ★縦の開始位置(sy)を少し上に、横の間隔(step)はそのまま
         sy, step = 0.275, 0.0606
         score = 100 - (len(wrong_numbers) * 20)
