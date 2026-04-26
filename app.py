@@ -119,8 +119,8 @@ def grade():
     elif mode == 'calc_contest':
         sy, step = 0.215, 0.0606
         score = 100 - (len(wrong_numbers) * 4)
-        score_pos = (int(w * 0.85), int(h * 0.15))
-        font_scale = max(2.5, w * 0.0025)
+        score_pos = (int(w * 0.87), int(h * 0.17))
+        font_scale = max(2, w * 0.0025)
         for q in range(1, 26):
             cx, cy = get_calc_pos(q, w, h, sy, step)
             if q in wrong_numbers: draw_check(img, cx, cy, w, red, thickness)
