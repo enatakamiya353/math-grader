@@ -178,6 +178,82 @@ def get_crop_box(mode, q_num, w, h):
         cx = int(w * 0.85); cy = int(h * (sy + (q_num - 1) * step))
         return cx - int(w*0.22), cy - int(h*0.04), cx + int(w*0.08), cy + int(h*0.04)
     return 0, 0, w, h
+# app.py (Pythonサーバー側) の該当箇所に追加/修正するイメージ
 
+def get_skewer_crop(image, mode, q_num):
+    h, w = image.shape[:2]
+    crop_img = None
+    
+    if mode == 'pref':
+        # --- 都道府県コンテスト (94問) の切り出し座標 ---
+        q_num = int(q_num)
+        if q_num < 1 or q_num > 94:
+            return None
+            
+        # 表の開始位置（全体のY座標に対する割合。LaTeXのレイアウトから推測）
+        start_y = int(h * 0.26) 
+        # 1行あたりの高さ
+        step_y = int(h * 0.026) 
+        
+        # 1段目(左)か、2段目(右)か
+        is_right_col = False
+        row_idx = 0
+        
+        # 都道府県名 (1〜47)
+        if q_num <= 47:
+            if q_num <= 24:
+                is_right_col = False
+                row_idx = q_num - 1
+            else:
+                is_right_col = True
+                row_idx = q_num - 25
+        # 都道府県庁所在地 (48〜94)
+        else:
+            base_q = q_num - 47
+            if base_q <= 24:
+                is_right_col = False
+                row_idx = base_q - 1
+            else:
+                is_right_col = True
+                row_idx = base_q - 25
+
+        # Y座標の決定
+        y1 = start_y + (row_idx * step_y)
+        y2 = y1 + step_y
+        
+        # X座標の決定 (幅の割合)
+        # 表全体の構造: [番号] [都道府県名: 0.9] [県庁所在地: 1.1]
+        mid_x = int(w * 0.5)
+        
+        if not is_right_col: # 左段
+            if q_num <= 47: # 都道府県名
+                x1 = int(w * 0.1)
+                x2 = int(w * 0.26)
+            else: # 県庁所在地
+                x1 = int(w * 0.26)
+                x2 = mid_x - int(w * 0.02)
+        else: # 右段
+            if q_num <= 47: # 都道府県名
+                x1 = mid_x + int(w * 0.1)
+                x2 = mid_x + int(w * 0.26)
+            else: # 県庁所在地
+                x1 = mid_x + int(w * 0.26)
+                x2 = w - int(w * 0.02)
+
+        # 切り抜き（マージンを少し持たせる）
+        margin = 5
+        y1 = max(0, y1 - margin)
+        y2 = min(h, y2 + margin)
+        x1 = max(0, x1 - margin)
+        x2 = min(w, x2 + margin)
+        
+        crop_img = image[y1:y2, x1:x2]
+
+    # --- 他のモードの処理 (kanji, calc_test など) ---
+    elif mode == 'kanji':
+        # 既存の漢字の処理...
+        pass
+        
+    return crop_img
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
