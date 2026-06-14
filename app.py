@@ -54,12 +54,12 @@ def get_crop_box(mode, q_num, w, h):
         cy = int(h * (sy + (q_num - 1) * step))
         return cx - int(w * 0.22), cy - int(h * 0.04), cx + int(w * 0.08), cy + int(h * 0.04)
 
-elif mode == 'pref':
+    elif mode == 'pref':
         # 都道府県コンテスト (94問)
         if q_num < 1 or q_num > 94:
             return 0, 0, w, h
 
-        # ★開始位置を大幅に上に修正し、行の高さも微調整
+        # 開始位置と行の高さを設定
         start_y = int(h * 0.185) 
         step_y = int(h * 0.0269) 
         
@@ -86,7 +86,7 @@ elif mode == 'pref':
         y1 = start_y + (row_idx * step_y)
         y2 = y1 + step_y
         
-        # ★X座標を解答用紙の実際の比率に合わせて精密化
+        # X座標を解答用紙の実際の比率に合わせて精密化
         if not is_right_col: # 左段
             if q_num <= 47: # 県名
                 x1, x2 = int(w * 0.118), int(w * 0.281)
@@ -98,10 +98,12 @@ elif mode == 'pref':
             else: # 県庁所在地
                 x1, x2 = int(w * 0.727), int(w * 0.927)
 
-        # ★マージン（余白）を少し広げて枠線までしっかり見せる
+        # マージン（余白）を少し広げて枠線までしっかり見せる
         margin_x = int(w * 0.015)
         margin_y = int(h * 0.015)
         return x1 - margin_x, y1 - margin_y, x2 + margin_x, y2 + margin_y
+
+    return 0, 0, w, h
 
 
 # ==========================================
@@ -254,7 +256,7 @@ def grade():
             else:
                 cv2.circle(img, (cx, cy), int(w * 0.015), red, thickness)
 
-elif mode == 'pref':
+    elif mode == 'pref':
         # 都道府県コンテスト（94点満点）
         score = 94 - len(wrong_numbers)
         score_pos = (int(w * 0.85), int(h * 0.12))
@@ -278,10 +280,10 @@ elif mode == 'pref':
                     is_right_col = True
                     row_idx = base_q - 25
             
-            # ★Y座標の中心位置を新しい基準(0.185)に合わせる
+            # Y座標の中心位置を新しい基準(0.185)に合わせる
             cy = int(h * (0.198 + row_idx * 0.0269))
             
-            # ★X座標の中心位置をそれぞれの枠の真ん中に合わせる
+            # X座標の中心位置をそれぞれの枠の真ん中に合わせる
             if not is_right_col:
                 cx = int(w * 0.20) if q <= 47 else int(w * 0.38)
             else:
@@ -291,6 +293,20 @@ elif mode == 'pref':
                 draw_check(img, cx, cy, w, red, thickness)
             else:
                 cv2.circle(img, (cx, cy), int(w * 0.012), red, max(2, thickness - 1))
+
+    # ==========================================
+    # 最終的な得点を描画してエンコード・返却
+    # ==========================================
+    cv2.putText(img, f"{score}", score_pos, cv2.FONT_HERSHEY_SIMPLEX, font_scale, red, thickness + 2)
+
+    _, buffer = cv2.imencode('.jpg', img, JPEG_QUALITY)
+    result_b64 = base64.b64encode(buffer).decode('utf-8')
+    
+    return jsonify({
+        'status': 'success', 
+        'image': 'data:image/jpeg;base64,' + result_b64, 
+        'score': score
+    })
 
 
 if __name__ == '__main__':
