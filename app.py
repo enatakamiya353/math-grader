@@ -59,14 +59,13 @@ def get_crop_box(mode, q_num, w, h):
         if q_num < 1 or q_num > 94:
             return 0, 0, w, h
 
-        # ★ 開始Y座標を1段分下げて、枠の真ん中を捉えるように修正
-        start_y = int(h * 0.21) 
+        # ★ 切り出しの開始Y座標を1行分(約0.028)下に移動
+        start_y = int(h * 0.238) 
         step_y = int(h * 0.0269) 
         
         is_right_col = False
         row_idx = 0
         
-        # 1〜47が県名、48〜94が県庁所在地
         if q_num <= 47:
             if q_num <= 24:
                 is_right_col = False
@@ -86,7 +85,6 @@ def get_crop_box(mode, q_num, w, h):
         y1 = start_y + (row_idx * step_y)
         y2 = y1 + step_y
         
-        # ★ X座標を実際の解答欄の罫線位置に合わせて精密化
         if not is_right_col: # 左段
             if q_num <= 47: # 県名
                 x1, x2 = int(w * 0.15), int(w * 0.35)
@@ -278,10 +276,9 @@ def grade():
                     is_right_col = True
                     row_idx = base_q - 25
             
-            # ★ Y座標の中心位置を1段分（約0.027）下げる
-            cy = int(h * (0.225 + row_idx * 0.0269))
+            # ★ 描画のY座標を1行分(約0.027)下に修正
+            cy = int(h * (0.252 + row_idx * 0.0269))
             
-            # ★ X座標の中心位置を枠のど真ん中へ移動
             if not is_right_col:
                 cx = int(w * 0.25) if q <= 47 else int(w * 0.425)
             else:
