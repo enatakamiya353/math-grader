@@ -9,6 +9,104 @@ app = Flask(__name__)
 SCALE_MATRIX = fitz.Matrix(1.3, 1.3)
 JPEG_QUALITY = [int(cv2.IMWRITE_JPEG_QUALITY), 75]
 
+# ==========================================
+# 座標計算ユーティリティ関数
+# ==========================================
+
+def get_calc_pos(q, w, h, sy, step):
+    if 1 <= q <= 10:
+        cx = w * 0.305; cy = h * (sy + (q - 1) * step)
+    elif 11 <= q <= 20:
+        cx = w * 0.595; cy = h * (sy + (q - 11) * step)
+    else:
+        cx = w * 0.89; cy = h * (sy + (q - 21) * step)
+    return int(cx), int(cy)
+
+def draw_check(img, cx, cy, w, color, thickness):
+    size = int(w * 0.015)
+    pt1 = (cx - int(size * 0.8), cy)
+    pt2 = (cx - int(size * 0.2), cy + size)
+    pt3 = (cx + size, cy - size)
+    cv2.line(img, pt1, pt2, color, thickness)
+    cv2.line(img, pt2, pt3, color, thickness)
+
+def get_crop_box(mode, q_num, w, h):
+    """
+    串刺し採点用の切り抜き座標(x1, y1, x2, y2)を返す
+    """
+    if mode in ['kanji', 'yojijukugo']:
+        start_x, end_x = 0.10, 0.89
+        start_y, end_y = 0.14, 0.92
+        idx = q_num - 1
+        row, col = idx // 10, idx % 10
+        cx = int(w * (end_x - (col * (end_x - start_x) / 10.0) - ((end_x - start_x) / 20.0)))
+        cy = int(h * (start_y + (row * (end_y - start_y) / 5.0) + ((end_y - start_y) / 25.0)))
+        return cx - int(w * 0.04), cy - int(h * 0.06), cx + int(w * 0.04), cy + int(h * 0.06)
+
+    elif mode == 'calc_contest':
+        sy, step = 0.215, 0.0606
+        cx, cy = get_calc_pos(q_num, w, h, sy, step)
+        return cx - int(w * 0.18), cy - int(h * 0.035), cx + int(w * 0.05), cy + int(h * 0.035)
+
+    elif mode == 'calc_test':
+        sy, step = 0.3, 0.0606
+        cx = int(w * 0.85)
+        cy = int(h * (sy + (q_num - 1) * step))
+        return cx - int(w * 0.22), cy - int(h * 0.04), cx + int(w * 0.08), cy + int(h * 0.04)
+
+    elif mode == 'pref':
+        # 都道府県コンテスト (94問)
+        if q_num < 1 or q_num > 94:
+            return 0, 0, w, h
+
+        start_y = int(h * 0.26) 
+        step_y = int(h * 0.026) 
+        mid_x = int(w * 0.5)
+        
+        is_right_col = False
+        row_idx = 0
+        
+        # 1〜47が県名、48〜94が県庁所在地
+        if q_num <= 47:
+            if q_num <= 24:
+                is_right_col = False
+                row_idx = q_num - 1
+            else:
+                is_right_col = True
+                row_idx = q_num - 25
+        else:
+            base_q = q_num - 47
+            if base_q <= 24:
+                is_right_col = False
+                row_idx = base_q - 1
+            else:
+                is_right_col = True
+                row_idx = base_q - 25
+
+        y1 = start_y + (row_idx * step_y)
+        y2 = y1 + step_y
+        
+        if not is_right_col: # 左段
+            if q_num <= 47: # 県名
+                x1, x2 = int(w * 0.1), int(w * 0.26)
+            else: # 県庁
+                x1, x2 = int(w * 0.26), mid_x - int(w * 0.02)
+        else: # 右段
+            if q_num <= 47: # 県名
+                x1, x2 = mid_x + int(w * 0.1), mid_x + int(w * 0.26)
+            else: # 県庁
+                x1, x2 = mid_x + int(w * 0.26), w - int(w * 0.02)
+
+        margin = int(h * 0.005)
+        return x1 - margin, y1 - margin, x2 + margin, y2 + margin
+
+    return 0, 0, w, h
+
+
+# ==========================================
+# API エンドポイント
+# ==========================================
+
 @app.route('/preview', methods=['POST'])
 def preview():
     data = request.json
@@ -36,6 +134,7 @@ def preview():
     result_b64 = base64.b64encode(buffer).decode('utf-8')
     return jsonify({'status': 'success', 'image': 'data:image/jpeg;base64,' + result_b64, 'total_pages': total_pages, 'page_num': page_num})
 
+
 @app.route('/skewer', methods=['POST'])
 def skewer():
     data = request.json
@@ -55,8 +154,10 @@ def skewer():
             img_data = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, 3)
             img = cv2.cvtColor(img_data, cv2.COLOR_RGB2BGR)
             h, w = img.shape[:2]
+            
             x1, y1, x2, y2 = get_crop_box(mode, q_num, w, h)
             x1, y1, x2, y2 = max(0, x1), max(0, y1), min(w, x2), min(h, y2)
+            
             crop_img = img[y1:y2, x1:x2]
             _, buffer = cv2.imencode('.jpg', crop_img, JPEG_QUALITY)
             cropped_images.append({'page': page_num, 'image': 'data:image/jpeg;base64,' + base64.b64encode(buffer).decode('utf-8')})
@@ -64,13 +165,16 @@ def skewer():
         nparr = np.frombuffer(file_bytes, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         h, w = img.shape[:2]
+        
         x1, y1, x2, y2 = get_crop_box(mode, q_num, w, h)
         x1, y1, x2, y2 = max(0, x1), max(0, y1), min(w, x2), min(h, y2)
+        
         crop_img = img[y1:y2, x1:x2]
         _, buffer = cv2.imencode('.jpg', crop_img, JPEG_QUALITY)
         cropped_images.append({'page': 0, 'image': 'data:image/jpeg;base64,' + base64.b64encode(buffer).decode('utf-8')})
 
     return jsonify({'status': 'success', 'crops': cropped_images})
+
 
 @app.route('/grade', methods=['POST'])
 def grade():
@@ -98,13 +202,17 @@ def grade():
     red = (0, 0, 255)
     thickness = max(3, int(w * 0.003))
 
-    # ★ モードごとの座標・得点位置・フォントサイズ設定
+    score = 0
+    score_pos = (int(w * 0.8), int(h * 0.1))
+    font_scale = max(1.8, w * 0.002)
+
+    # ==========================================
+    # 画像へのマルバツ・得点描画処理
+    # ==========================================
     if mode in ['kanji', 'yojijukugo']:
         start_x, end_x = 0.10, 0.89
         start_y, end_y = 0.14, 0.92
         score = 100 - (len(wrong_numbers) * 2)
-        
-        # 漢字用：上部の「得点」の右の枠内に収まるように位置を左上に調整、文字も少し小さく
         score_pos = (int(w * 0.76), int(h * 0.085))
         font_scale = max(1.8, w * 0.0018)
         
@@ -113,147 +221,82 @@ def grade():
             row, col = idx // 10, idx % 10
             cx = int(w * (end_x - (col * (end_x - start_x) / 10.0) - ((end_x - start_x) / 20.0)))
             cy = int(h * (start_y + (row * (end_y - start_y) / 5.0) + ((end_y - start_y) / 25.0)))
-            if q in wrong_numbers: draw_check(img, cx, cy, w, red, thickness)
-            else: cv2.circle(img, (cx, cy), int(w * 0.018), red, thickness)
+            if q in wrong_numbers:
+                draw_check(img, cx, cy, w, red, thickness)
+            else:
+                cv2.circle(img, (cx, cy), int(w * 0.018), red, thickness)
 
     elif mode == 'calc_contest':
         sy, step = 0.215, 0.0606
         score = 100 - (len(wrong_numbers) * 4)
         score_pos = (int(w * 0.87), int(h * 0.17))
         font_scale = max(2, w * 0.0025)
+        
         for q in range(1, 26):
             cx, cy = get_calc_pos(q, w, h, sy, step)
-            if q in wrong_numbers: draw_check(img, cx, cy, w, red, thickness)
-            else: cv2.circle(img, (cx, cy), int(w * 0.015), red, thickness)
+            if q in wrong_numbers:
+                draw_check(img, cx, cy, w, red, thickness)
+            else:
+                cv2.circle(img, (cx, cy), int(w * 0.015), red, thickness)
 
     elif mode == 'calc_test':
-        # ★縦の開始位置(sy)を少し上に、横の間隔(step)はそのまま
         sy, step = 0.275, 0.0606
         score = 100 - (len(wrong_numbers) * 20)
-        
-        # ★得点の位置を左へずらし、文字サイズを少し小さく調整
         score_pos = (int(w * 0.87), int(h * 0.17))
         font_scale = max(1.6, w * 0.0022)
         
         for q in range(1, 6):
-            # ★マルの横位置(cx)を左へずらして解答欄の中央へ
             cx = int(w * 0.80) 
             cy = int(h * (sy + (q - 1) * step))
-            if q in wrong_numbers: draw_check(img, cx, cy, w, red, thickness)
-            else: cv2.circle(img, (cx, cy), int(w * 0.015), red, thickness)
+            if q in wrong_numbers:
+                draw_check(img, cx, cy, w, red, thickness)
+            else:
+                cv2.circle(img, (cx, cy), int(w * 0.015), red, thickness)
 
-    # 得点を描画
+    elif mode == 'pref':
+        # 都道府県コンテスト（94点満点）
+        score = 94 - len(wrong_numbers)
+        score_pos = (int(w * 0.85), int(h * 0.12))
+        font_scale = max(1.8, w * 0.002)
+        
+        for q in range(1, 95):
+            is_right_col = False
+            row_idx = 0
+            
+            if q <= 47:
+                if q <= 24:
+                    row_idx = q - 1
+                else:
+                    is_right_col = True
+                    row_idx = q - 25
+            else:
+                base_q = q - 47
+                if base_q <= 24:
+                    row_idx = base_q - 1
+                else:
+                    is_right_col = True
+                    row_idx = base_q - 25
+            
+            cy = int(h * (0.283 + row_idx * 0.0275))
+            
+            if not is_right_col:
+                cx = int(w * 0.18) if q <= 47 else int(w * 0.38)
+            else:
+                cx = int(w * 0.68) if q <= 47 else int(w * 0.88)
+            
+            if q in wrong_numbers:
+                draw_check(img, cx, cy, w, red, thickness)
+            else:
+                cv2.circle(img, (cx, cy), int(w * 0.012), red, max(2, thickness - 1))
+
+    # 最終的な得点を描画
     cv2.putText(img, f"{score}", score_pos, cv2.FONT_HERSHEY_SIMPLEX, font_scale, red, thickness + 2)
 
     _, buffer = cv2.imencode('.jpg', img, JPEG_QUALITY)
     result_b64 = base64.b64encode(buffer).decode('utf-8')
     return jsonify({'status': 'success', 'image': 'data:image/jpeg;base64,' + result_b64, 'score': score})
 
-def get_calc_pos(q, w, h, sy, step):
-    if 1 <= q <= 10: cx = w * 0.305; cy = h * (sy + (q - 1) * step)
-    elif 11 <= q <= 20: cx = w * 0.595; cy = h * (sy + (q - 11) * step)
-    else: cx = w * 0.89; cy = h * (sy + (q - 21) * step)
-    return int(cx), int(cy)
 
-def draw_check(img, cx, cy, w, color, thickness):
-    size = int(w * 0.015)
-    pt1 = (cx - int(size * 0.8), cy); pt2 = (cx - int(size * 0.2), cy + size); pt3 = (cx + size, cy - size)
-    cv2.line(img, pt1, pt2, color, thickness); cv2.line(img, pt2, pt3, color, thickness)
-
-def get_crop_box(mode, q_num, w, h):
-    if mode in ['kanji', 'yojijukugo']:
-        start_x, end_x = 0.10, 0.89
-        start_y, end_y = 0.14, 0.92
-        idx = q_num - 1
-        row, col = idx // 10, idx % 10
-        cx = int(w * (end_x - (col * (end_x - start_x) / 10.0) - ((end_x - start_x) / 20.0)))
-        cy = int(h * (start_y + (row * (end_y - start_y) / 5.0) + ((end_y - start_y) / 25.0)))
-        return cx - int(w*0.04), cy - int(h*0.06), cx + int(w*0.04), cy + int(h*0.06)
-    elif mode == 'calc_contest':
-        sy, step = 0.215, 0.0606
-        cx, cy = get_calc_pos(q_num, w, h, sy, step)
-        return cx - int(w*0.18), cy - int(h*0.035), cx + int(w*0.05), cy + int(h*0.035)
-    elif mode == 'calc_test':
-        sy, step = 0.3, 0.0606
-        cx = int(w * 0.85); cy = int(h * (sy + (q_num - 1) * step))
-        return cx - int(w*0.22), cy - int(h*0.04), cx + int(w*0.08), cy + int(h*0.04)
-    return 0, 0, w, h
-# app.py (Pythonサーバー側) の該当箇所に追加/修正するイメージ
-
-def get_skewer_crop(image, mode, q_num):
-    h, w = image.shape[:2]
-    crop_img = None
-    
-    if mode == 'pref':
-        # --- 都道府県コンテスト (94問) の切り出し座標 ---
-        q_num = int(q_num)
-        if q_num < 1 or q_num > 94:
-            return None
-            
-        # 表の開始位置（全体のY座標に対する割合。LaTeXのレイアウトから推測）
-        start_y = int(h * 0.26) 
-        # 1行あたりの高さ
-        step_y = int(h * 0.026) 
-        
-        # 1段目(左)か、2段目(右)か
-        is_right_col = False
-        row_idx = 0
-        
-        # 都道府県名 (1〜47)
-        if q_num <= 47:
-            if q_num <= 24:
-                is_right_col = False
-                row_idx = q_num - 1
-            else:
-                is_right_col = True
-                row_idx = q_num - 25
-        # 都道府県庁所在地 (48〜94)
-        else:
-            base_q = q_num - 47
-            if base_q <= 24:
-                is_right_col = False
-                row_idx = base_q - 1
-            else:
-                is_right_col = True
-                row_idx = base_q - 25
-
-        # Y座標の決定
-        y1 = start_y + (row_idx * step_y)
-        y2 = y1 + step_y
-        
-        # X座標の決定 (幅の割合)
-        # 表全体の構造: [番号] [都道府県名: 0.9] [県庁所在地: 1.1]
-        mid_x = int(w * 0.5)
-        
-        if not is_right_col: # 左段
-            if q_num <= 47: # 都道府県名
-                x1 = int(w * 0.1)
-                x2 = int(w * 0.26)
-            else: # 県庁所在地
-                x1 = int(w * 0.26)
-                x2 = mid_x - int(w * 0.02)
-        else: # 右段
-            if q_num <= 47: # 都道府県名
-                x1 = mid_x + int(w * 0.1)
-                x2 = mid_x + int(w * 0.26)
-            else: # 県庁所在地
-                x1 = mid_x + int(w * 0.26)
-                x2 = w - int(w * 0.02)
-
-        # 切り抜き（マージンを少し持たせる）
-        margin = 5
-        y1 = max(0, y1 - margin)
-        y2 = min(h, y2 + margin)
-        x1 = max(0, x1 - margin)
-        x2 = min(w, x2 + margin)
-        
-        crop_img = image[y1:y2, x1:x2]
-
-    # --- 他のモードの処理 (kanji, calc_test など) ---
-    elif mode == 'kanji':
-        # 既存の漢字の処理...
-        pass
-        
-    return crop_img
 if __name__ == '__main__':
+    # サーバーの起動
     app.run(host='0.0.0.0', port=8080)
