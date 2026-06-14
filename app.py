@@ -54,14 +54,14 @@ def get_crop_box(mode, q_num, w, h):
         cy = int(h * (sy + (q_num - 1) * step))
         return cx - int(w * 0.22), cy - int(h * 0.04), cx + int(w * 0.08), cy + int(h * 0.04)
 
-    elif mode == 'pref':
+elif mode == 'pref':
         # 都道府県コンテスト (94問)
         if q_num < 1 or q_num > 94:
             return 0, 0, w, h
 
-        start_y = int(h * 0.26) 
-        step_y = int(h * 0.026) 
-        mid_x = int(w * 0.5)
+        # ★開始位置を大幅に上に修正し、行の高さも微調整
+        start_y = int(h * 0.185) 
+        step_y = int(h * 0.0269) 
         
         is_right_col = False
         row_idx = 0
@@ -86,21 +86,22 @@ def get_crop_box(mode, q_num, w, h):
         y1 = start_y + (row_idx * step_y)
         y2 = y1 + step_y
         
+        # ★X座標を解答用紙の実際の比率に合わせて精密化
         if not is_right_col: # 左段
             if q_num <= 47: # 県名
-                x1, x2 = int(w * 0.1), int(w * 0.26)
-            else: # 県庁
-                x1, x2 = int(w * 0.26), mid_x - int(w * 0.02)
+                x1, x2 = int(w * 0.118), int(w * 0.281)
+            else: # 県庁所在地
+                x1, x2 = int(w * 0.281), int(w * 0.481)
         else: # 右段
             if q_num <= 47: # 県名
-                x1, x2 = mid_x + int(w * 0.1), mid_x + int(w * 0.26)
-            else: # 県庁
-                x1, x2 = mid_x + int(w * 0.26), w - int(w * 0.02)
+                x1, x2 = int(w * 0.564), int(w * 0.727)
+            else: # 県庁所在地
+                x1, x2 = int(w * 0.727), int(w * 0.927)
 
-        margin = int(h * 0.005)
-        return x1 - margin, y1 - margin, x2 + margin, y2 + margin
-
-    return 0, 0, w, h
+        # ★マージン（余白）を少し広げて枠線までしっかり見せる
+        margin_x = int(w * 0.015)
+        margin_y = int(h * 0.015)
+        return x1 - margin_x, y1 - margin_y, x2 + margin_x, y2 + margin_y
 
 
 # ==========================================
@@ -254,60 +255,42 @@ def grade():
                 cv2.circle(img, (cx, cy), int(w * 0.015), red, thickness)
 
 elif mode == 'pref':
-        # 都道府県コンテスト (94問)
-        if q_num < 1 or q_num > 94:
-            return 0, 0, w, h
-
-        # ★開始位置を大幅に上に修正し、行の高さも微調整
-        start_y = int(h * 0.185) 
-        step_y = int(h * 0.0269) 
+        # 都道府県コンテスト（94点満点）
+        score = 94 - len(wrong_numbers)
+        score_pos = (int(w * 0.85), int(h * 0.12))
+        font_scale = max(1.8, w * 0.002)
         
-        is_right_col = False
-        row_idx = 0
-        
-        # 1〜47が県名、48〜94が県庁所在地
-        if q_num <= 47:
-            if q_num <= 24:
-                is_right_col = False
-                row_idx = q_num - 1
+        for q in range(1, 95):
+            is_right_col = False
+            row_idx = 0
+            
+            if q <= 47:
+                if q <= 24:
+                    row_idx = q - 1
+                else:
+                    is_right_col = True
+                    row_idx = q - 25
             else:
-                is_right_col = True
-                row_idx = q_num - 25
-        else:
-            base_q = q_num - 47
-            if base_q <= 24:
-                is_right_col = False
-                row_idx = base_q - 1
+                base_q = q - 47
+                if base_q <= 24:
+                    row_idx = base_q - 1
+                else:
+                    is_right_col = True
+                    row_idx = base_q - 25
+            
+            # ★Y座標の中心位置を新しい基準(0.185)に合わせる
+            cy = int(h * (0.198 + row_idx * 0.0269))
+            
+            # ★X座標の中心位置をそれぞれの枠の真ん中に合わせる
+            if not is_right_col:
+                cx = int(w * 0.20) if q <= 47 else int(w * 0.38)
             else:
-                is_right_col = True
-                row_idx = base_q - 25
-
-        y1 = start_y + (row_idx * step_y)
-        y2 = y1 + step_y
-        
-        # ★X座標を解答用紙の実際の比率に合わせて精密化
-        if not is_right_col: # 左段
-            if q_num <= 47: # 県名
-                x1, x2 = int(w * 0.118), int(w * 0.281)
-            else: # 県庁所在地
-                x1, x2 = int(w * 0.281), int(w * 0.481)
-        else: # 右段
-            if q_num <= 47: # 県名
-                x1, x2 = int(w * 0.564), int(w * 0.727)
-            else: # 県庁所在地
-                x1, x2 = int(w * 0.727), int(w * 0.927)
-
-        # ★マージン（余白）を少し広げて枠線までしっかり見せる
-        margin_x = int(w * 0.015)
-        margin_y = int(h * 0.015)
-        return x1 - margin_x, y1 - margin_y, x2 + margin_x, y2 + margin_y
-
-    # 最終的な得点を描画
-    cv2.putText(img, f"{score}", score_pos, cv2.FONT_HERSHEY_SIMPLEX, font_scale, red, thickness + 2)
-
-    _, buffer = cv2.imencode('.jpg', img, JPEG_QUALITY)
-    result_b64 = base64.b64encode(buffer).decode('utf-8')
-    return jsonify({'status': 'success', 'image': 'data:image/jpeg;base64,' + result_b64, 'score': score})
+                cx = int(w * 0.645) if q <= 47 else int(w * 0.827)
+            
+            if q in wrong_numbers:
+                draw_check(img, cx, cy, w, red, thickness)
+            else:
+                cv2.circle(img, (cx, cy), int(w * 0.012), red, max(2, thickness - 1))
 
 
 if __name__ == '__main__':
