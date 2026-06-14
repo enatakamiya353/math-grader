@@ -59,8 +59,8 @@ def get_crop_box(mode, q_num, w, h):
         if q_num < 1 or q_num > 94:
             return 0, 0, w, h
 
-        # 開始位置と行の高さを設定
-        start_y = int(h * 0.185) 
+        # ★ 開始Y座標を1段分下げて、枠の真ん中を捉えるように修正
+        start_y = int(h * 0.21) 
         step_y = int(h * 0.0269) 
         
         is_right_col = False
@@ -86,22 +86,20 @@ def get_crop_box(mode, q_num, w, h):
         y1 = start_y + (row_idx * step_y)
         y2 = y1 + step_y
         
-        # X座標を解答用紙の実際の比率に合わせて精密化
+        # ★ X座標を実際の解答欄の罫線位置に合わせて精密化
         if not is_right_col: # 左段
             if q_num <= 47: # 県名
-                x1, x2 = int(w * 0.118), int(w * 0.281)
-            else: # 県庁所在地
-                x1, x2 = int(w * 0.281), int(w * 0.481)
+                x1, x2 = int(w * 0.15), int(w * 0.35)
+            else: # 県庁
+                x1, x2 = int(w * 0.35), int(w * 0.50)
         else: # 右段
             if q_num <= 47: # 県名
-                x1, x2 = int(w * 0.564), int(w * 0.727)
-            else: # 県庁所在地
-                x1, x2 = int(w * 0.727), int(w * 0.927)
+                x1, x2 = int(w * 0.59), int(w * 0.79)
+            else: # 県庁
+                x1, x2 = int(w * 0.79), int(w * 0.94)
 
-        # マージン（余白）を少し広げて枠線までしっかり見せる
-        margin_x = int(w * 0.015)
-        margin_y = int(h * 0.015)
-        return x1 - margin_x, y1 - margin_y, x2 + margin_x, y2 + margin_y
+        margin = int(h * 0.005)
+        return x1 - margin, y1 - margin, x2 + margin, y2 + margin
 
     return 0, 0, w, h
 
@@ -280,14 +278,14 @@ def grade():
                     is_right_col = True
                     row_idx = base_q - 25
             
-            # Y座標の中心位置を新しい基準(0.185)に合わせる
-            cy = int(h * (0.198 + row_idx * 0.0269))
+            # ★ Y座標の中心位置を1段分（約0.027）下げる
+            cy = int(h * (0.225 + row_idx * 0.0269))
             
-            # X座標の中心位置をそれぞれの枠の真ん中に合わせる
+            # ★ X座標の中心位置を枠のど真ん中へ移動
             if not is_right_col:
-                cx = int(w * 0.20) if q <= 47 else int(w * 0.38)
+                cx = int(w * 0.25) if q <= 47 else int(w * 0.425)
             else:
-                cx = int(w * 0.645) if q <= 47 else int(w * 0.827)
+                cx = int(w * 0.69) if q <= 47 else int(w * 0.865)
             
             if q in wrong_numbers:
                 draw_check(img, cx, cy, w, red, thickness)
