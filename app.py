@@ -77,13 +77,13 @@ def get_crop_box(mode, q_num, w, h):
                 row_idx = base_q - 25
 
         # ★ 描写位置（マルバツの中心）と完全に同じY座標の計算式
-        cy = int(h * (0.249 + row_idx * 0.0271))
+        cy = int(h * (0.245 + row_idx * 0.02725))
         
         # ★ 描写位置（マルバツの中心）と完全に同じX座標の計算式
         if not is_right_col:
-            cx = int(w * 0.25) if q_num <= 47 else int(w * 0.425)
+            cx = int(w * 0.22) if q_num <= 47 else int(w * 0.395)
         else:
-            cx = int(w * 0.69) if q_num <= 47 else int(w * 0.865)
+            cx = int(w * 0.66) if q_num <= 47 else int(w * 0.835)
 
         # 縦幅の計算（1行分の高さ 約0.0271 の 1.2倍 = 約0.03252 → 上下 0.01626）
         half_h = int(h * 0.01626)
@@ -259,7 +259,7 @@ def grade():
     elif mode == 'pref':
         # 都道府県コンテスト（94点満点）
         score = 94 - len(wrong_numbers)
-        score_pos = (int(w * 0.83), int(h * 0.181))
+        score_pos = (int(w * 0.83), int(h * 0.16))
         font_scale = max(1.6, w * 0.00175)
         
         for q in range(1, 95):
