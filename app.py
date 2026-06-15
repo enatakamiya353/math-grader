@@ -59,16 +59,11 @@ def get_crop_box(mode, q_num, w, h):
         if q_num < 1 or q_num > 94:
             return 0, 0, w, h
 
-        # ★ 切り出しの開始Y座標を1行分(約0.028)下に移動
-        start_y = int(h * 0.235) 
-        step_y = int(h * 0.0271) 
-        
         is_right_col = False
         row_idx = 0
         
         if q_num <= 47:
             if q_num <= 24:
-                is_right_col = False
                 row_idx = q_num - 1
             else:
                 is_right_col = True
@@ -76,28 +71,37 @@ def get_crop_box(mode, q_num, w, h):
         else:
             base_q = q_num - 47
             if base_q <= 24:
-                is_right_col = False
                 row_idx = base_q - 1
             else:
                 is_right_col = True
                 row_idx = base_q - 25
 
-        y1 = start_y + (row_idx * step_y)
-        y2 = y1 + step_y
+        # ★ 描写位置（マルバツの中心）と完全に同じY座標の計算式
+        cy = int(h * (0.249 + row_idx * 0.0271))
         
-        if not is_right_col: # 左段
-            if q_num <= 47: # 県名
-                x1, x2 = int(w * 0.15), int(w * 0.35)
-            else: # 県庁
-                x1, x2 = int(w * 0.35), int(w * 0.50)
-        else: # 右段
-            if q_num <= 47: # 県名
-                x1, x2 = int(w * 0.59), int(w * 0.79)
-            else: # 県庁
-                x1, x2 = int(w * 0.79), int(w * 0.94)
+        # ★ 描写位置（マルバツの中心）と完全に同じX座標の計算式
+        if not is_right_col:
+            cx = int(w * 0.25) if q_num <= 47 else int(w * 0.425)
+        else:
+            cx = int(w * 0.69) if q_num <= 47 else int(w * 0.865)
 
-        margin = int(h * 0.005)
-        return x1 - margin, y1 - margin, x2 + margin, y2 + margin
+        # 縦幅の計算（1行分の高さ 約0.0271 の 1.2倍 = 約0.03252 → 上下 0.01626）
+        half_h = int(h * 0.01626)
+        y1 = cy - half_h
+        y2 = cy + half_h
+
+        # 横幅の計算（元の幅の 1.2倍）
+        # 県名: 元幅 0.20 * 1.2 = 0.24 → 左右 0.12
+        # 県庁: 元幅 0.15 * 1.2 = 0.18 → 左右 0.09
+        if q_num <= 47:
+            half_w = int(w * 0.12)
+        else:
+            half_w = int(w * 0.09)
+        
+        x1 = cx - half_w
+        x2 = cx + half_w
+
+        return x1, y1, x2, y2
 
     return 0, 0, w, h
 
