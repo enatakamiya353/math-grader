@@ -255,7 +255,7 @@ def grade():
     elif mode == 'pref':
         # 都道府県コンテスト（94点満点）
         score = 94 - len(wrong_numbers)
-        score_pos = (int(w * 0.83), int(h * 0.2))
+        score_pos = (int(w * 0.83), int(h * 0.181))
         font_scale = max(1.6, w * 0.00175)
         
         for q in range(1, 95):
