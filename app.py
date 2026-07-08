@@ -30,10 +30,30 @@ def draw_check(img, cx, cy, w, color, thickness):
     cv2.line(img, pt1, pt2, color, thickness)
     cv2.line(img, pt2, pt3, color, thickness)
 
+# 理科生物4択テスト 解答用紙：3列×17行の「記号」欄座標（PDF実測値）
+SEIBUTSU_COL_X = [0.2447, 0.5327, 0.8210]
+SEIBUTSU_ROW0_Y = 0.2854
+SEIBUTSU_ROW_STEP = 0.03485
+
+
+def get_seibutsu_pos(q_num, w, h):
+    idx = q_num - 1
+    col, row = idx // 17, idx % 17
+    cx = int(w * SEIBUTSU_COL_X[col])
+    cy = int(h * (SEIBUTSU_ROW0_Y + row * SEIBUTSU_ROW_STEP))
+    return cx, cy
+
+
 def get_crop_box(mode, q_num, w, h):
     """
     串刺し採点用の切り抜き座標(x1, y1, x2, y2)を返す
     """
+    if mode == 'seibutsu':
+        if q_num < 1 or q_num > 50:
+            return 0, 0, w, h
+        cx, cy = get_seibutsu_pos(q_num, w, h)
+        return cx - int(w * 0.09), cy - int(h * 0.016), cx + int(w * 0.09), cy + int(h * 0.016)
+
     if mode in ['kanji', 'yojijukugo']:
         start_x, end_x = 0.10, 0.89
         start_y, end_y = 0.14, 0.92
@@ -255,6 +275,19 @@ def grade():
                 draw_check(img, cx, cy, w, red, thickness)
             else:
                 cv2.circle(img, (cx, cy), int(w * 0.015), red, thickness)
+
+    elif mode == 'seibutsu':
+        # 理科生物4択確認テスト（50問・50点満点、1問1点）
+        score = 50 - len(wrong_numbers)
+        score_pos = (int(w * 0.8), int(h * 0.19))
+        font_scale = max(1.8, w * 0.002)
+
+        for q in range(1, 51):
+            cx, cy = get_seibutsu_pos(q, w, h)
+            if q in wrong_numbers:
+                draw_check(img, cx, cy, w, red, thickness)
+            else:
+                cv2.circle(img, (cx, cy), int(w * 0.014), red, thickness)
 
     elif mode == 'pref':
         # 都道府県コンテスト（94点満点）
